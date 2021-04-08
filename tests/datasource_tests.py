@@ -24,7 +24,7 @@ import pytest
 from superset import app, ConnectorRegistry, db
 from superset.connectors.sqla.models import SqlaTable
 from superset.datasets.commands.exceptions import DatasetNotFoundError
-from superset.exceptions import SupersetException, SupersetGenericDBErrorException
+from superset.exceptions import SupersetGenericDBErrorException
 from superset.utils.core import get_example_database
 from tests.fixtures.birth_names_dashboard import load_birth_names_dashboard_with_slices
 
@@ -99,20 +99,13 @@ class TestDatasource(SupersetTestCase):
             self.assertEqual(resp["error"], "Only single queries supported")
 
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
-    @mock.patch("superset.views.datasource.ConnectorRegistry.get_datasource")
-    def test_external_metadata_error_return_400(self, mock_get_datasource):
+    @mock.patch("superset.connectors.sqla.models.SqlaTable.external_metadata")
+    def test_external_metadata_error_return_400(self, mock_external_metadata):
         self.login(username="admin")
         tbl = self.get_table_by_name("birth_names")
         url = f"/datasource/external_metadata/table/{tbl.id}/"
 
-        mock_get_datasource.external_metadata.side_effect = SupersetException("oops")
-
-        pytest.raises(
-            SupersetException,
-            lambda: ConnectorRegistry.get_datasource(
-                "table", 9999999, db.session
-            ).external_metadata(),
-        )
+        mock_external_metadata.side_effect = SupersetGenericDBErrorException("oops")
 
         resp = self.client.get(url)
         assert resp.status_code == 400
